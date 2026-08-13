@@ -5,9 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Arduino USB Web Controller</title>
 
-  <!-- Google Web Serial Polyfill (Routes Serial through WebUSB on Android) -->
-  <script src="https://cdn.jsdelivr.net/npm/web-serial-polyfill@1.0.15/dist/serial.js"></script>
-
   <style>
     body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #f4f4f9; }
     h2 { margin-bottom: 5px; }
@@ -28,7 +25,14 @@
   <button id="onBtn" class="on" disabled>Turn ON (Pin 13)</button>
   <button id="offBtn" class="off" disabled>Turn OFF (Pin 13)</button>
 
-  <script>
+  <script type="module">
+    // Import Web Serial Polyfill as an ES Module
+    import { serial as polyfillSerial } from "https://cdn.jsdelivr.net/npm/web-serial-polyfill@1.0.15/+esm";
+
+    // Force Android / WebUSB to use Polyfill instead of broken native Web Serial
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    const serialAPI = (isAndroid || !navigator.serial) ? polyfillSerial : navigator.serial;
+
     let port;
     let writer;
 
@@ -39,19 +43,8 @@
 
     connectBtn.addEventListener('click', async () => {
       try {
-        let serialProvider;
-
-        // Force WebUSB polyfill on Android to bypass broken native serial
-        if (typeof serial !== 'undefined' && serial.Serial) {
-          serialProvider = new serial.Serial();
-        } else if ('serial' in navigator) {
-          serialProvider = navigator.serial;
-        } else {
-          alert("WebUSB / Web Serial is not supported on this browser.");
-          return;
-        }
-
-        port = await serialProvider.requestPort();
+        // Triggers WebUSB prompt on Android
+        port = await serialAPI.requestPort();
         await port.open({ baudRate: 9600 });
 
         const textEncoder = new TextEncoderStream();
