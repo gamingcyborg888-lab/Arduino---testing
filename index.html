@@ -3,39 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Arduino Web Controller</title>
+  <title>Arduino USB Web Controller</title>
+
+  <!-- Google's Web Serial Polyfill for Android USB OTG support -->
+  <script src="https://cdn.jsdelivr.net/npm/web-serial-polyfill@1.0.15/dist/serial.js"></script>
+
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding-top: 50px;
-      background-color: #f4f4f9;
-    }
-    button {
-      padding: 14px 28px;
-      font-size: 16px;
-      margin: 10px;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    #connectBtn { background-color: #007bff; color: white; }
-    #onBtn { background-color: #28a745; color: white; }
-    #offBtn { background-color: #dc3545; color: white; }
+    body { font-family: sans-serif; text-align: center; padding: 20px; background-color: #f4f4f9; }
+    h2 { margin-bottom: 5px; }
+    #status { font-weight: bold; margin-bottom: 20px; color: #555; }
+    button { padding: 14px 28px; font-size: 16px; margin: 10px; border-radius: 8px; border: none; cursor: pointer; }
+    .connect { background-color: #007bff; color: white; }
+    .on { background-color: #28a745; color: white; }
+    .off { background-color: #dc3545; color: white; }
     button:disabled { background-color: #ccc; cursor: not-allowed; }
   </style>
 </head>
 <body>
 
-  <h1>Arduino USB Web Controller</h1>
-  <p>Status: <span id="status">Disconnected</span></p>
+  <h2>Arduino USB Web Controller</h2>
+  <p id="status">Status: Disconnected</p>
 
-  <!-- Step 1: User grants USB Serial Permission -->
-  <button id="connectBtn">1. Connect to Arduino</button>
-  <br><br>
-  <!-- Step 2: Controls -->
-  <button id="onBtn" disabled>Turn ON (Pin 13)</button>
-  <button id="offBtn" disabled>Turn OFF (Pin 13)</button>
+  <button id="connectBtn" class="connect">1. Connect to Arduino</button><br><br>
+  <button id="onBtn" class="on" disabled>Turn ON (Pin 13)</button>
+  <button id="offBtn" class="off" disabled>Turn OFF (Pin 13)</button>
 
   <script>
     let port;
@@ -46,45 +37,40 @@
     const offBtn = document.getElementById('offBtn');
     const statusText = document.getElementById('status');
 
-    // Connect to Arduino over Web Serial API
     connectBtn.addEventListener('click', async () => {
-  if ('serial' in navigator) {
-    try {
-      // Prompt user for any serial device
-      port = await navigator.serial.requestPort({});
-      await port.open({ baudRate: 9600 });
+      try {
+        // Use the polyfill (window.serial) on Android, or native browser serial on Desktop
+        const serialPortProvider = window.serial || navigator.serial;
 
-      const textEncoder = new TextEncoderStream();
-      const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
-      writer = textEncoder.writable.getWriter();
+        if (!serialPortProvider) {
+          alert("Web Serial is not supported on this device/browser.");
+          return;
+        }
 
-      statusText.innerText = "Connected!";
-      statusText.style.color = "green";
-      onBtn.disabled = false;
-      offBtn.disabled = false;
-    } catch (err) {
-      alert("Error connecting: " + err.message);
+        port = await serialPortProvider.requestPort();
+        await port.open({ baudRate: 9600 });
+
+        const textEncoder = new TextEncoderStream();
+        textEncoder.readable.pipeTo(port.writable);
+        writer = textEncoder.writable.getWriter();
+
+        statusText.innerText = "Status: Connected!";
+        statusText.style.color = "green";
+        onBtn.disabled = false;
+        offBtn.disabled = false;
+      } catch (err) {
+        alert("Connection failed: " + err.message);
+      }
+    });
+
+    async function sendCommand(command) {
+      if (writer) {
+        await writer.write(command);
+      }
     }
-  } else {
-    alert("Web Serial API is not supported in this browser.");
-  }
-});
 
-  
-    // Send '1' to Arduino
-    onBtn.addEventListener('click', async () => {
-      if (writer) {
-        await writer.write('1');
-      }
-    });
-
-    // Send '0' to Arduino
-    offBtn.addEventListener('click', async () => {
-      if (writer) {
-        await writer.write('0');
-      }
-    });
+    onBtn.addEventListener('click', () => sendCommand('1'));
+    offBtn.addEventListener('click', () => sendCommand('0'));
   </script>
-
 </body>
 </html>
