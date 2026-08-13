@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Arduino USB Web Controller</title>
 
-  <!-- Google's Web Serial Polyfill for Android USB OTG support -->
+  <!-- Google Web Serial Polyfill (Routes Serial through WebUSB on Android) -->
   <script src="https://cdn.jsdelivr.net/npm/web-serial-polyfill@1.0.15/dist/serial.js"></script>
 
   <style>
@@ -39,15 +39,19 @@
 
     connectBtn.addEventListener('click', async () => {
       try {
-        // Use the polyfill (window.serial) on Android, or native browser serial on Desktop
-        const serialPortProvider = window.serial || navigator.serial;
+        let serialProvider;
 
-        if (!serialPortProvider) {
-          alert("Web Serial is not supported on this device/browser.");
+        // Force WebUSB polyfill on Android to bypass broken native serial
+        if (typeof serial !== 'undefined' && serial.Serial) {
+          serialProvider = new serial.Serial();
+        } else if ('serial' in navigator) {
+          serialProvider = navigator.serial;
+        } else {
+          alert("WebUSB / Web Serial is not supported on this browser.");
           return;
         }
 
-        port = await serialPortProvider.requestPort();
+        port = await serialProvider.requestPort();
         await port.open({ baudRate: 9600 });
 
         const textEncoder = new TextEncoderStream();
