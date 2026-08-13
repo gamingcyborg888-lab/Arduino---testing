@@ -26,10 +26,8 @@
   <button id="offBtn" class="off" disabled>Turn OFF (Pin 13)</button>
 
   <script type="module">
-    // Import Web Serial Polyfill as an ES Module
     import { serial as polyfillSerial } from "https://cdn.jsdelivr.net/npm/web-serial-polyfill@1.0.15/+esm";
 
-    // Force Android / WebUSB to use Polyfill instead of broken native Web Serial
     const isAndroid = /Android/i.test(navigator.userAgent);
     const serialAPI = (isAndroid || !navigator.serial) ? polyfillSerial : navigator.serial;
 
@@ -43,8 +41,17 @@
 
     connectBtn.addEventListener('click', async () => {
       try {
-        // Triggers WebUSB prompt on Android
-        port = await serialAPI.requestPort();
+        // Explicitly filter for official Arduinos and common clone chips
+        port = await serialAPI.requestPort({
+          filters: [
+            { usbVendorId: 0x2341 }, // Official Arduino
+            { usbVendorId: 0x1a86 }, // CH340 / CH341 (Most common clone chip)
+            { usbVendorId: 0x10c4 }, // CP210x
+            { usbVendorId: 0x0403 }, // FTDI
+            { usbVendorId: 0x2e8a }  // Raspberry Pi / Pico
+          ]
+        });
+
         await port.open({ baudRate: 9600 });
 
         const textEncoder = new TextEncoderStream();
