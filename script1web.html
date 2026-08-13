@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arduino Web Controller</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding-top: 50px;
+      background-color: #f4f4f9;
+    }
+    button {
+      padding: 14px 28px;
+      font-size: 16px;
+      margin: 10px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    #connectBtn { background-color: #007bff; color: white; }
+    #onBtn { background-color: #28a745; color: white; }
+    #offBtn { background-color: #dc3545; color: white; }
+    button:disabled { background-color: #ccc; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+  <h1>Arduino USB Web Controller</h1>
+  <p>Status: <span id="status">Disconnected</span></p>
+
+  <!-- Step 1: User grants USB Serial Permission -->
+  <button id="connectBtn">1. Connect to Arduino</button>
+  <br><br>
+  <!-- Step 2: Controls -->
+  <button id="onBtn" disabled>Turn ON (Pin 13)</button>
+  <button id="offBtn" disabled>Turn OFF (Pin 13)</button>
+
+  <script>
+    let port;
+    let writer;
+
+    const connectBtn = document.getElementById('connectBtn');
+    const onBtn = document.getElementById('onBtn');
+    const offBtn = document.getElementById('offBtn');
+    const statusText = document.getElementById('status');
+
+    // Connect to Arduino over Web Serial API
+    connectBtn.addEventListener('click', async () => {
+      if ('serial' in navigator) {
+        try {
+          // Prompt user to select Arduino COM port
+          port = await navigator.serial.requestPort();
+          await port.open({ baudRate: 9600 });
+
+          // Setup a stream writer to send text strings easily
+          const textEncoder = new TextEncoderStream();
+          const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
+          writer = textEncoder.writable.getWriter();
+
+          statusText.innerText = "Connected!";
+          statusText.style.color = "green";
+          onBtn.disabled = false;
+          offBtn.disabled = false;
+        } catch (err) {
+          alert("Error connecting: " + err.message);
+        }
+      } else {
+        alert("Web Serial API is not supported in this browser. Please use Chrome or Edge.");
+      }
+    });
+
+    // Send '1' to Arduino
+    onBtn.addEventListener('click', async () => {
+      if (writer) {
+        await writer.write('1');
+      }
+    });
+
+    // Send '0' to Arduino
+    offBtn.addEventListener('click', async () => {
+      if (writer) {
+        await writer.write('0');
+      }
+    });
+  </script>
+
+</body>
+</html>
